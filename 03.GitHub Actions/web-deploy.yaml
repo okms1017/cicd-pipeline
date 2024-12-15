@@ -1,0 +1,37 @@
+name: CICD-4
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  scp-ssh-restart-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Github Repository Checkout
+        uses: actions/checkout@v4
+
+      - name: copy file via ssh
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_PIP }}
+          username: ubuntu
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: server.py
+          target: /home/ubuntu
+
+      - name: executing remote ssh commands
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.EC2_PIP }}
+          username: ubuntu
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script_stop: true
+          script: |
+             cd /home/ubuntu/cicd-2w
+             sudo fuser -k -n tcp 80 || true
+             rm server.py
+             cp /home/ubuntu/server.py ./
+             nohup sudo -E python3 /home/ubuntu/cicd-2w/server.py > /home/ubuntu/cicd-2w/server.log 2>&1 &
+             echo "test" >> /home/ubuntu/text.txt
